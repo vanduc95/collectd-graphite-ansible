@@ -1,0 +1,5 @@
+---
+# handlers file for graphite
+
+- name: restart carbon-cache
+  service: name=carbon-cache state=restarted enabled=yes

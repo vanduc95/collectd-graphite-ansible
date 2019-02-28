@@ -1,0 +1,125 @@
+---
+# tasks file for graphite
+
+- name: Update apt cache
+  apt: update_cache=yes
+#  register: result
+#- debug: var=result
+
+- name: Install Graphite
+  apt: pkg={{ item }}
+  with_items:
+    - graphite-web
+    - graphite-carbon
+#  register: result
+#- debug: var=result
+
+- name: Install Postgresql
+  apt: pkg={{ item }} update_cache=yes cache_valid_time=3600
+  with_items:
+    - postgresql
+    - libpq-dev
+    - python-psycopg2
+#  register: result
+#- debug: var=result
+
+- name: Create database graphite
+  command: sudo -u postgres psql -c "CREATE USER graphite WITH PASSWORD 'Ec0net@!2017';"
+#  register: result
+#- debug: var=result
+
+- name: Create user graphite
+  command: sudo -u postgres psql -c "CREATE DATABASE graphite WITH OWNER graphite;"
+#  register: result
+#- debug: var=result
+
+- name: Copy configuration files to temporary file
+  copy:
+    src: '/etc/graphite/local_settings.py'
+    dest: '/etc/graphite/local_settings.py.orig'
+    remote_src: true
+
+- name: Configuration file /etc/graphite/local_settings.py
+  template:
+    src: local_settings.py.j2
+    dest: /etc/graphite/local_settings.py
+
+- name: sudo graphite-manage migrate auth
+  command: "{{ item }}"
+  with_items:
+    - graphite-manage migrate auth
+    - graphite-manage syncdb --noinput
+  register: result
+- debug: var=result
+
+
+#CONFIGURE CARBON
+- name: Config file /etc/default/graphite-carbon
+  copy:
+    src: graphite-carbon
+    dest: /etc/default/graphite-carbon
+
+- name: Config file /etc/carbon/carbon.conf
+  replace:
+    path: /etc/carbon/carbon.conf
+    regexp: 'ENABLE_LOGROTATION = False'
+    replace: 'ENABLE_LOGROTATION = True'
+
+- name: copy file
+  copy:
+    remote_src: yes
+    src: /usr/share/doc/graphite-carbon/examples/storage-aggregation.conf.example
+    dest: /etc/carbon/storage-aggregation.conf
+  notify:
+    - restart carbon-cache
+
+- name: install apache2
+  apt: pkg={{ item }}
+  with_items:
+    - apache2
+    - libapache2-mod-wsgi
+
+- name: copy config
+  copy:
+    remote_src: yes
+    src: /usr/share/graphite-web/apache2-graphite.conf
+    dest: /etc/apache2/sites-available/
+
+- name: Enable graphite virtual host
+  command: "{{ item }}"
+  with_items:
+    - a2dissite 000-default
+    - a2ensite apache2-graphite
+  register: result
+- debug: var=result
+
+
+- name: Restart apache2
+  service: name=apache2 state=restarted enabled=yes
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
